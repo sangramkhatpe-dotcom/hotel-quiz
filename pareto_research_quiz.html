@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preference Arena - Customer Research Pairwise Tournament</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Canvas Confetti for Celebration Effect -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* Smooth card replacement animations */
+    .card-enter {
+      animation: slideInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .card-leave {
+      animation: fadeOutDrop 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
+    }
+    .card-winner-pulse {
+      animation: championGlow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes slideInUp {
+      from {
+        opacity: 0;
+        transform: translateY(22px) scale(0.97);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes fadeOutDrop {
+      from {
+        opacity: 1;
+        transform: scale(1);
+      }
+      to {
+        opacity: 0;
+        transform: scale(0.92) translateY(14px);
+      }
+    }
+
+    @keyframes championGlow {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.03); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col justify-between selection:bg-brand-100 selection:text-brand-700">
+
+  <!-- Top Navigation & Global Controls -->
+  <header class="w-full bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base font-bold text-slate-900 tracking-tight leading-tight">Preference Arena</h1>
+          <p class="text-xs text-slate-400 font-medium hidden sm:block">Pairwise Elimination & Pareto Discovery</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2">
+        <button id="btn-open-history" onclick="toggleHistoryModal(true)" class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg text-slate-600 bg-slate-100 hover:bg-slate-200 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span class="hidden sm:inline">Responses</span>
+          <span id="response-count-pill" class="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-slate-300 text-slate-800 rounded-full">0</span>
+        </button>
+
+        <button id="btn-open-config" onclick="toggleConfigModal(true)" class="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-lg text-white bg-slate-900 hover:bg-slate-800 shadow-sm transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          <span>Setup Options</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-4xl w-full mx-auto px-4 py-8 flex-1 flex flex-col justify-center items-center">
+    
+    <!-- Intro / Start Screen -->
+    <div id="view-intro" class="w-full max-w-xl text-center space-y-6">
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-50 border border-brand-100 text-brand-700 text-xs font-semibold">
+        <span class="w-2 h-2 rounded-full bg-brand-600 animate-pulse"></span>
+        Pairwise "King of the Hill" Evaluation
+      </div>
+
+      <div class="space-y-3">
+        <h2 id="intro-title" class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
+          Help Us Discover Your True Favorite
+        </h2>
+        <p id="intro-desc" class="text-slate-600 text-sm sm:text-base leading-relaxed">
+          You'll be shown two items at a time. Pick the one you prefer. The winner stays in the ring to face new challengers until only the undisputed top choice remains!
+        </p>
+      </div>
+
+      <!-- Quick Option Summary Card -->
+      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm text-left">
+        <div class="flex items-center justify-between mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+          <span>Active Challengers (<span id="intro-item-count">0</span>)</span>
+          <button onclick="toggleConfigModal(true)" class="text-brand-600 hover:text-brand-700 font-bold">Edit</button>
+        </div>
+        <div id="intro-items-preview" class="flex flex-wrap gap-2 max-h-36 overflow-y-auto">
+          <!-- Dynamically populated tags -->
+        </div>
+      </div>
+
+      <div class="pt-2">
+        <button onclick="startTournament()" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-bold text-white bg-brand-600 hover:bg-brand-700 active:scale-95 shadow-lg shadow-brand-500/25 transition">
+          <span>Begin Tournament</span>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Quiz Arena Screen -->
+    <div id="view-arena" class="w-full max-w-3xl hidden space-y-6">
+      <!-- Progress Bar & Step Header -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between text-xs font-semibold text-slate-500">
+          <span class="flex items-center gap-1.5">
+            <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+            Round <span id="current-round-number" class="text-slate-900 font-bold">1</span> of <span id="total-rounds-number" class="text-slate-900 font-bold">5</span>
+          </span>
+          <span id="progress-percentage" class="text-brand-600 font-bold">0% Completed</span>
+        </div>
+        <div class="w-full h-2.5 bg-slate-200/80 rounded-full overflow-hidden p-0.5">
+          <div id="progress-bar-fill" class="h-full bg-brand-600 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <div class="text-center">
+        <h3 class="text-xl sm:text-2xl font-bold text-slate-900">Which one do you prefer?</h3>
+        <p class="text-xs sm:text-sm text-slate-500 mt-1">Click a card or press the corresponding keyboard key</p>
+      </div>
+
+      <!-- Duel Arena Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 pt-2 relative">
+        <!-- Center VS Badge (Visible on desktop) -->
+        <div class="hidden md:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white border-2 border-slate-200 shadow-md items-center justify-center font-black text-xs text-slate-400 select-none">
+          VS
+        </div>
+
+        <!-- Choice Card 1 (Slot A) -->
+        <div id="card-slot-a" onclick="handleSelection('a')" 
+             class="group relative bg-white border-2 border-slate-200/80 hover:border-brand-500 rounded-2xl p-6 sm:p-8 flex flex-col justify-between text-left cursor-pointer transition-all duration-200 hover:shadow-xl hover:-translate-y-1 active:scale-[0.98]">
+          <div class="flex items-center justify-between mb-4">
+            <span id="badge-a" class="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 group-hover:bg-brand-50 group-hover:text-brand-700 transition">
+              Option A
+            </span>
+            <span class="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-400 group-hover:bg-brand-100 group-hover:text-brand-800 transition">
+              [ ← ] or [ 1 ]
+            </span>
+          </div>
+
+          <p id="text-slot-a" class="text-lg sm:text-xl font-bold text-slate-800 group-hover:text-brand-700 leading-snug py-4 transition"></p>
+
+          <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+            <span id="status-tag-a" class="font-medium flex items-center gap-1">Challenger</span>
+            <span class="text-brand-600 font-semibold group-hover:translate-x-0.5 transition">Select &rarr;</span>
+          </div>
+        </div>
+
+        <!-- Choice Card 2 (Slot B) -->
+        <div id="card-slot-b" onclick="handleSelection('b')" 
+             class="group relative bg-white border-2 border-slate-200/80 hover:border-brand-500 rounded-2xl p-6 sm:p-8 flex flex-col justify-between text-left cursor-pointer transition-all duration-200 hover:shadow-xl hover:-translate-y-1 active:scale-[0.98]">
+          <div class="flex items-center justify-between mb-4">
+            <span id="badge-b" class="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 group-hover:bg-brand-50 group-hover:text-brand-700 transition">
+              Option B
+            </span>
+            <span class="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-400 group-hover:bg-brand-100 group-hover:text-brand-800 transition">
+              [ → ] or [ 2 ]
+            </span>
+          </div>
+
+          <p id="text-slot-b" class="text-lg sm:text-xl font-bold text-slate-800 group-hover:text-brand-700 leading-snug py-4 transition"></p>
+
+          <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+            <span id="status-tag-b" class="font-medium flex items-center gap-1">Challenger</span>
+            <span class="text-brand-600 font-semibold group-hover:translate-x-0.5 transition">Select &rarr;</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action helper hints -->
+      <div class="text-center text-xs text-slate-400 pt-2 flex items-center justify-center gap-4">
+        <span>👑 Current reigning favorite remains in the arena</span>
+        <span>•</span>
+        <button onclick="abortTournament()" class="hover:text-red-500 underline underline-offset-2">Cancel Quiz</button>
+      </div>
+    </div>
+
+    <!-- Completion & Results View -->
+    <div id="view-result" class="w-full max-w-xl hidden space-y-6">
+      <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xl shadow-brand-500/5 text-center relative overflow-hidden">
+        <div class="absolute -right-8 -top-8 w-32 h-32 bg-amber-100 rounded-full blur-2xl opacity-60"></div>
+        <div class="absolute -left-8 -bottom-8 w-32 h-32 bg-brand-100 rounded-full blur-2xl opacity-60"></div>
+
+        <div class="relative z-10 space-y-5">
+          <div class="inline-flex p-3 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 shadow-sm">
+            <svg class="w-10 h-10" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V16h2a1 1 0 110 2H7a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1z" clip-rule="evenodd"></path>
+            </svg>
+          </div>
+
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200/60">
+              Pareto Winner
+            </span>
+            <h3 class="text-sm font-semibold text-slate-500 mt-2">Undisputed Customer Favorite:</h3>
+            <p id="winner-title" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1 leading-snug px-4"></p>
+          </div>
+
+          <!-- Elimination Breakdown Details -->
+          <div class="bg-slate-50 rounded-xl p-4 text-left border border-slate-100">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Match Pathway History</h4>
+            <div id="match-journey-list" class="space-y-1.5 text-xs text-slate-600 max-h-40 overflow-y-auto pr-1">
+              <!-- Dynamically populated journey -->
+            </div>
+          </div>
+
+          <!-- Optional Respondent Info / Submission Form -->
+          <div id="submission-card" class="pt-2 text-left space-y-3">
+            <label class="block text-xs font-medium text-slate-500">Optional: Share your contact details with this feedback</label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <input type="text" id="respondent-name" placeholder="Your name (optional)" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <input type="email" id="respondent-email" placeholder="Your email (optional)" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500">
+            </div>
+            
+            <div class="flex items-center gap-2 pt-2">
+              <button id="btn-save-response" onclick="submitFinalResponse()" class="flex-1 py-3 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm shadow-md shadow-brand-500/20 active:scale-[0.98] transition">
+                Record & Finish
+              </button>
+              <button onclick="startTournament()" class="py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition">
+                Retake
+              </button>
+            </div>
+            <p id="submission-status-msg" class="text-xs text-center text-slate-500 hidden"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Configuration / Admin Modal -->
+  <div id="modal-config" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-bold text-slate-900">Quiz Settings & Option List</h3>
+          <p class="text-xs text-slate-400">Configure survey options and remote collection endpoint</p>
+        </div>
+        <button onclick="toggleConfigModal(false)" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-6 flex-1 text-xs sm:text-sm">
+        <!-- Remote Webhook URL -->
+        <div class="space-y-1.5">
+          <label class="block font-bold text-slate-700">Webhook or Google Apps Script URL (Optional)</label>
+          <input type="url" id="config-webhook-url" placeholder="https://hook.eu1.make.com/... or Zapier/Sheet endpoint" 
+                 class="w-full text-xs px-3.5 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500">
+          <p class="text-[11px] text-slate-400">If filled, final winner and comparison logs will be POSTed as JSON to this URL.</p>
+        </div>
+
+        <!-- Option Editor -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="font-bold text-slate-700">Competitor Options List (Minimum 3)</label>
+            <button onclick="loadPresetTemplates('ecommerce')" class="text-xs font-semibold text-brand-600 hover:text-brand-700">Load E-Commerce Preset</button>
+          </div>
+
+          <div class="flex gap-2">
+            <input type="text" id="new-option-input" placeholder="Type a new feature, gift, or perk..." 
+                   class="flex-1 text-xs px-3.5 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                   onkeydown="if(event.key === 'Enter') addOptionFromInput()">
+            <button onclick="addOptionFromInput()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition">
+              Add
+            </button>
+          </div>
+
+          <!-- Option List Container -->
+          <div id="config-options-list" class="space-y-1.5 max-h-56 overflow-y-auto border border-slate-100 rounded-xl p-2 bg-slate-50/50">
+            <!-- Dynamically injected item entries -->
+          </div>
+        </div>
+      </div>
+
+      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+        <button onclick="resetToFactoryDefaults()" class="text-xs text-rose-600 font-semibold hover:underline">Reset Defaults</button>
+        <button onclick="saveConfigAndClose()" class="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-lg shadow-sm transition">
+          Apply & Save
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stored Results / CSV Export Modal -->
+  <div id="modal-history" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-bold text-slate-900">Recorded Test Responses</h3>
+          <p class="text-xs text-slate-400">Locally saved Pareto choices from customer runs</p>
+        </div>
+        <button onclick="toggleHistoryModal(false)" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto flex-1">
+        <div id="history-table-container">
+          <!-- Dynamically populated history table or empty note -->
+        </div>
+      </div>
+
+      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+        <button onclick="clearAllHistory()" class="text-xs text-rose-600 font-semibold hover:underline">Clear History</button>
+        <button onclick="exportHistoryCSV()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-1.5 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+          Export CSV
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="w-full py-4 text-center text-xs text-slate-400 border-t border-slate-200 bg-white">
+    <p>Pairwise Elimination Research Engine • Instant Pareto Prioritization</p>
+  </footer>
+
+  <script>
+    /* Default option pool */
+    const DEFAULT_OPTIONS = [
+      "Free 24-Hour Express Delivery",
+      "Flat 25% Off Storewide Coupon",
+      "Buy-1-Get-1-Free on Any Item",
+      "Lifetime Warranty & Free Returns",
+      "Early Access to VIP New Releases",
+      "Dedicated 24/7 Personal Concierge Support"
+    ];
+
+    /* Storage Keys */
+    const STORAGE_KEY_OPTIONS = 'pareto_quiz_options_v1';
+    const STORAGE_KEY_WEBHOOK = 'pareto_quiz_webhook_v1';
+    const STORAGE_KEY_HISTORY = 'pareto_quiz_history_v1';
+
+    /* App State */
+    let currentOptions = [];
+    let challengerPool = [];
+    let currentChampion = null;
+    let currentChallenger = null;
+    let currentSlotAssignment = { championSlot: 'a', challengerSlot: 'b' };
+    let matchHistory = [];
+    let totalRounds = 0;
+    let currentRoundIndex = 0;
+    let isTransitioning = false;
+
+    // Load initial settings
+    function loadSavedConfiguration() {
+      const stored = localStorage.getItem(STORAGE_KEY_OPTIONS);
+      if (stored) {
+        try {
+          currentOptions = JSON.parse(stored);
+        } catch (e) {
+          currentOptions = [...DEFAULT_OPTIONS];
+        }
+      } else {
+        currentOptions = [...DEFAULT_OPTIONS];
+      }
+
+      const webhook = localStorage.getItem(STORAGE_KEY_WEBHOOK) || "";
+      document.getElementById('config-webhook-url').value = webhook;
+
+      updateIntroSummary();
+      updateResponseCountPill();
+    }
+
+    function saveOptionsToStorage() {
+      localStorage.setItem(STORAGE_KEY_OPTIONS, JSON.stringify(currentOptions));
+      updateIntroSummary();
+    }
+
+    function updateIntroSummary() {
+      document.getElementById('intro-item-count').textContent = currentOptions.length;
+      const preview = document.getElementById('intro-items-preview');
+      preview.innerHTML = '';
+      currentOptions.forEach(opt => {
+        const tag = document.createElement('span');
+        tag.className = 'inline-block px-2.5 py-1 text-xs rounded-lg bg-slate-100 text-slate-700 border border-slate-200 font-medium';
+        tag.textContent = opt;
+        preview.appendChild(tag);
+      });
+    }
+
+    // Shuffle helper to remove order bias
+    function shuffleArray(arr) {
+      const array = [...arr];
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    // Start a fresh tournament
+    function startTournament() {
+      if (currentOptions.length < 2) {
+        alertModal("Please configure at least 2 options in Setup first.");
+        toggleConfigModal(true);
+        return;
+      }
+
+      const shuffled = shuffleArray(currentOptions);
+      currentChampion = shuffled[0];
+      challengerPool = shuffled.slice(1);
+      matchHistory = [];
+
+      totalRounds = currentOptions.length - 1;
+      currentRoundIndex = 0;
+      isTransitioning = false;
+
+      // Switch screens
+      document.getElementById('view-intro').classList.add('hidden');
+      document.getElementById('view-result').classList.add('hidden');
+      document.getElementById('view-arena').classList.remove('hidden');
+
+      document.getElementById('total-rounds-number').textContent = totalRounds;
+
+      presentNextMatchup(true);
+    }
+
+    function presentNextMatchup(isFirst = false) {
+      if (challengerPool.length === 0) {
+        finishTournament();
+        return;
+      }
+
+      currentRoundIndex++;
+      currentChallenger = challengerPool.shift();
+
+      // Randomize whether Champion goes to slot A or B to eliminate positional left/right bias
+      const placeChampionInA = Math.random() < 0.5;
+      currentSlotAssignment = {
+        championSlot: placeChampionInA ? 'a' : 'b',
+        challengerSlot: placeChampionInA ? 'b' : 'a'
+      };
+
+      const slotA = document.getElementById('card-slot-a');
+      const slotB = document.getElementById('card-slot-b');
+      const textA = document.getElementById('text-slot-a');
+      const textB = document.getElementById('text-slot-b');
+      const statusA = document.getElementById('status-tag-a');
+      const statusB = document.getElementById('status-tag-b');
+
+      const champContent = currentChampion;
+      const chlngContent = currentChallenger;
+
+      if (placeChampionInA) {
+        textA.textContent = champContent;
+        statusA.innerHTML = '<span class="text-amber-500 font-bold">👑 Defending Fav</span>';
+        textB.textContent = chlngContent;
+        statusB.innerHTML = '<span>⚡ Challenger</span>';
+      } else {
+        textB.textContent = champContent;
+        statusB.innerHTML = '<span class="text-amber-500 font-bold">👑 Defending Fav</span>';
+        textA.textContent = chlngContent;
+        statusA.innerHTML = '<span>⚡ Challenger</span>';
+      }
+
+      // Trigger enter animation
+      slotA.classList.remove('card-enter', 'card-leave', 'card-winner-pulse');
+      slotB.classList.remove('card-enter', 'card-leave', 'card-winner-pulse');
+      void slotA.offsetWidth; // reflow
+      void slotB.offsetWidth;
+      slotA.classList.add('card-enter');
+      slotB.classList.add('card-enter');
+
+      // Update progress bar
+      const progressPercent = Math.round(((currentRoundIndex - 1) / totalRounds) * 100);
+      document.getElementById('current-round-number').textContent = currentRoundIndex;
+      document.getElementById('progress-percentage').textContent = `${progressPercent}%`;
+      document.getElementById('progress-bar-fill').style.width = `${progressPercent}%`;
+
+      isTransitioning = false;
+    }
+
+    function handleSelection(chosenSlot) {
+      if (isTransitioning) return;
+      isTransitioning = true;
+
+      const chosenText = chosenSlot === 'a' 
+        ? document.getElementById('text-slot-a').textContent 
+        : document.getElementById('text-slot-b').textContent;
+
+      const rejectedSlot = chosenSlot === 'a' ? 'b' : 'a';
+      const rejectedText = rejectedSlot === 'a'
+        ? document.getElementById('text-slot-a').textContent
+        : document.getElementById('text-slot-b').textContent;
+
+      // Log matchup result
+      matchHistory.push({
+        round: currentRoundIndex,
+        selected: chosenText,
+        defeated: rejectedText,
+        timestamp: new Date().toISOString()
+      });
+
+      // Update current Champion
+      currentChampion = chosenText;
+
+      // Visual feedback: animate loser dropping and winner pulsing
+      const winnerCard = document.getElementById(`card-slot-${chosenSlot}`);
+      const loserCard = document.getElementById(`card-slot-${rejectedSlot}`);
+
+      winnerCard.classList.add('card-winner-pulse');
+      loserCard.classList.add('card-leave');
+
+      setTimeout(() => {
+        presentNextMatchup();
+      }, 280);
+    }
+
+    // Keyboard support: Left arrow / 1 = Slot A, Right arrow / 2 = Slot B
+    window.addEventListener('keydown', (e) => {
+      const arenaVisible = !document.getElementById('view-arena').classList.contains('hidden');
+      if (!arenaVisible || isTransitioning) return;
+
+      if (e.key === 'ArrowLeft' || e.key === '1') {
+        handleSelection('a');
+      } else if (e.key === 'ArrowRight' || e.key === '2') {
+        handleSelection('b');
+      }
+    });
+
+    function abortTournament() {
+      document.getElementById('view-arena').classList.add('hidden');
+      document.getElementById('view-intro').classList.remove('hidden');
+    }
+
+    function finishTournament() {
+      document.getElementById('progress-bar-fill').style.width = '100%';
+      document.getElementById('progress-percentage').textContent = '100%';
+
+      setTimeout(() => {
+        document.getElementById('view-arena').classList.add('hidden');
+        document.getElementById('view-result').classList.remove('hidden');
+        document.getElementById('winner-title').textContent = currentChampion;
+
+        // Populate Match Journey List
+        const listContainer = document.getElementById('match-journey-list');
+        listContainer.innerHTML = '';
+        matchHistory.forEach(item => {
+          const row = document.createElement('div');
+          row.className = 'flex items-center justify-between border-b border-slate-100 pb-1';
+          row.innerHTML = `
+            <span class="font-medium text-slate-800">✓ ${escapeHtml(item.selected)}</span>
+            <span class="text-slate-400 text-[10px]">defeated</span>
+            <span class="text-slate-400 line-through truncate max-w-[140px] text-right">${escapeHtml(item.defeated)}</span>
+          `;
+          listContainer.appendChild(row);
+        });
+
+        // Trigger celebratory confetti
+        if (typeof confetti === 'function') {
+          confetti({
+            particleCount: 80,
+            spread: 70,
+            origin: { y: 0.6 }
+          });
+        }
+      }, 200);
+    }
+
+    function submitFinalResponse() {
+      const name = document.getElementById('respondent-name').value.trim();
+      const email = document.getElementById('respondent-email').value.trim();
+      const statusMsg = document.getElementById('submission-status-msg');
+
+      const responsePayload = {
+        id: 'resp_' + Date.now(),
+        winner: currentChampion,
+        userName: name || 'Anonymous',
+        userEmail: email || 'Not provided',
+        totalRounds: matchHistory.length,
+        history: matchHistory,
+        date: new Date().toLocaleString()
+      };
+
+      // 1. Store in browser LocalStorage
+      const existing = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY) || '[]');
+      existing.push(responsePayload);
+      localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(existing));
+      updateResponseCountPill();
+
+      // 2. Dispatch to Webhook / Google Apps Script endpoint if configured
+      const endpoint = localStorage.getItem(STORAGE_KEY_WEBHOOK);
+      if (endpoint && endpoint.trim().startsWith('http')) {
+        statusMsg.classList.remove('hidden');
+        statusMsg.textContent = 'Transmitting to remote endpoint...';
+        
+        fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          mode: 'no-cors', // Supports standard Google Apps Scripts & simple webhooks
+          body: JSON.stringify(responsePayload)
+        })
+        .then(() => {
+          showSubmitSuccess("Saved and response synced to webhook!");
+        })
+        .catch(err => {
+          console.warn("Webhook issue:", err);
+          showSubmitSuccess("Saved locally (webhook ping attempted).");
+        });
+      } else {
+        showSubmitSuccess("Response recorded successfully!");
+      }
+    }
+
+    function showSubmitSuccess(text) {
+      const statusMsg = document.getElementById('submission-status-msg');
+      statusMsg.classList.remove('hidden');
+      statusMsg.className = 'text-xs text-center font-bold text-emerald-600 mt-2';
+      statusMsg.textContent = text;
+      document.getElementById('btn-save-response').disabled = true;
+      document.getElementById('btn-save-response').classList.add('opacity-50');
+    }
+
+    function toggleConfigModal(show) {
+      const modal = document.getElementById('modal-config');
+      if (show) {
+        renderConfigList();
+        modal.classList.remove('hidden');
+      } else {
+        modal.classList.add('hidden');
+      }
+    }
+
+    function renderConfigList() {
+      const list = document.getElementById('config-options-list');
+      list.innerHTML = '';
+      currentOptions.forEach((opt, idx) => {
+        const item = document.createElement('div');
+        item.className = 'flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 text-xs';
+        item.innerHTML = `
+          <span class="font-medium text-slate-700 truncate pr-2">${idx + 1}. ${escapeHtml(opt)}</span>
+          <button onclick="removeOptionByIndex(${idx})" class="text-rose-500 hover:text-rose-700 font-bold p-1">✕</button>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    function addOptionFromInput() {
+      const input = document.getElementById('new-option-input');
+      const val = input.value.trim();
+      if (!val) return;
+      if (currentOptions.includes(val)) {
+        alertModal("This option is already in the list.");
+        return;
+      }
+      currentOptions.push(val);
+      input.value = '';
+      renderConfigList();
+    }
+
+    function removeOptionByIndex(index) {
+      if (currentOptions.length <= 2) {
+        alertModal("You need at least 2 options to compare.");
+        return;
+      }
+      currentOptions.splice(index, 1);
+      renderConfigList();
+    }
+
+    function saveConfigAndClose() {
+      const webhook = document.getElementById('config-webhook-url').value.trim();
+      localStorage.setItem(STORAGE_KEY_WEBHOOK, webhook);
+      saveOptionsToStorage();
+      toggleConfigModal(false);
+    }
+
+    function resetToFactoryDefaults() {
+      currentOptions = [...DEFAULT_OPTIONS];
+      renderConfigList();
+    }
+
+    function loadPresetTemplates(type) {
+      if (type === 'ecommerce') {
+        currentOptions = [
+          "Free 24-Hour Express Shipping",
+          "Flat 25% Off Storewide Discount",
+          "Buy 1 Get 1 Free on Select Items",
+          "Complimentary Luxury Gift Packaging",
+          "Lifetime Hassle-Free Returns",
+          "Instant Store Credit for Referrals"
+        ];
+      }
+      renderConfigList();
+    }
+
+    function toggleHistoryModal(show) {
+      const modal = document.getElementById('modal-history');
+      if (show) {
+        renderHistoryTable();
+        modal.classList.remove('hidden');
+      } else {
+        modal.classList.add('hidden');
+      }
+    }
+
+    function renderHistoryTable() {
+      const history = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY) || '[]');
+      const container = document.getElementById('history-table-container');
+
+      if (history.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8 text-slate-400 text-xs">
+            No survey submissions recorded yet. Take the quiz to generate results!
+          </div>
+        `;
+        return;
+      }
+
+      let html = `
+        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px]">
+              <tr>
+                <th class="p-3">Date</th>
+                <th class="p-3">Pareto Winner</th>
+                <th class="p-3">Respondent</th>
+                <th class="p-3">Rounds</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+      `;
+
+      history.slice().reverse().forEach(row => {
+        html += `
+          <tr class="hover:bg-slate-50">
+            <td class="p-3 text-slate-500 whitespace-nowrap">${escapeHtml(row.date)}</td>
+            <td class="p-3 font-bold text-brand-700">${escapeHtml(row.winner)}</td>
+            <td class="p-3 text-slate-600">${escapeHtml(row.userName)} <span class="text-slate-400">(${escapeHtml(row.userEmail)})</span></td>
+            <td class="p-3 text-slate-500 font-mono">${row.totalRounds}</td>
+          </tr>
+        `;
+      });
+
+      html += `</tbody></table></div>`;
+      container.innerHTML = html;
+    }
+
+    function updateResponseCountPill() {
+      const history = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY) || '[]');
+      document.getElementById('response-count-pill').textContent = history.length;
+    }
+
+    function clearAllHistory() {
+      localStorage.removeItem(STORAGE_KEY_HISTORY);
+      renderHistoryTable();
+      updateResponseCountPill();
+    }
+
+    function exportHistoryCSV() {
+      const history = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY) || '[]');
+      if (history.length === 0) {
+        alertModal("No response data available to export.");
+        return;
+      }
+
+      let csv = "ID,Date,Winner,Respondent_Name,Respondent_Email,Total_Rounds\n";
+      history.forEach(item => {
+        csv += `"${item.id}","${item.date}","${item.winner.replace(/"/g, '""')}","${item.userName.replace(/"/g, '""')}","${item.userEmail.replace(/"/g, '""')}",${item.totalRounds}\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `pareto_quiz_results_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // Accessible in-page toast alert helper instead of window.alert()
+    function alertModal(msg) {
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-5 right-5 z-50 bg-slate-900 text-white text-xs px-4 py-3 rounded-xl shadow-lg border border-slate-700 animate-bounce';
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2600);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, function(m) {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        }[m];
+      });
+    }
+
+    // Startup
+    window.addEventListener('DOMContentLoaded', () => {
+      loadSavedConfiguration();
+    });
+  </script>
+</body>
+</html>
