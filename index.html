@@ -739,15 +739,41 @@
       renderConfigList();
     }
 
-    function toggleHistoryModal(show) {
-      const modal = document.getElementById('modal-history');
-      if (show) {
-        renderHistoryTable();
-        modal.classList.remove('hidden');
-      } else {
-        modal.classList.add('hidden');
-      }
-    }
+/* --- ADMIN PIN PROTECTION --- */
+const ADMIN_PIN = "1234"; // <-- Set your secret PIN here
+
+function authenticateAdmin() {
+  const enteredPin = prompt("Enter Admin PIN:");
+  if (enteredPin === ADMIN_PIN) {
+    return true;
+  }
+  if (enteredPin !== null) {
+    alertModal("Incorrect PIN. Access denied.");
+  }
+  return false;
+}
+
+function toggleConfigModal(show) {
+  const modal = document.getElementById('modal-config');
+  if (show) {
+    if (!authenticateAdmin()) return;
+    renderConfigList();
+    modal.classList.remove('hidden');
+  } else {
+    modal.classList.add('hidden');
+  }
+}
+
+function toggleHistoryModal(show) {
+  const modal = document.getElementById('modal-history');
+  if (show) {
+    if (!authenticateAdmin()) return;
+    renderHistoryTable();
+    modal.classList.remove('hidden');
+  } else {
+    modal.classList.add('hidden');
+  }
+}
 
     function renderHistoryTable() {
       const history = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY) || '[]');
