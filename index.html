@@ -801,30 +801,76 @@
       renderHistoryTable();
       updateResponseCountPill();
     }
+function exportHistoryCSV() {
+  const history = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY) || '[]');
+  if (history.length === 0) {
+    alertModal("No response data available to export.");
+    return;
+  }
 
-    function exportHistoryCSV() {
-      const history = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY) || '[]');
-      if (history.length === 0) {
-        alertModal("No response data available to export.");
-        return;
-      }
+  // 1. Overall Respondent Summary
+  let csv = "--- RESPONDENT RUNS ---\n";
+  csv += "Response ID,Date,Pareto Winner,Respondent Name,Contact,Rankings Overview\n";
 
-      let csv = "ID,Date,Winner,Respondent_Name,Respondent_Email,Total_Rounds\n";
-      history.forEach(item => {
-        csv += `"${item.id}","${item.date}","${item.winner.replace(/"/g, '""')}","${item.userName.replace(/"/g, '""')}","${item.userEmail.replace(/"/g, '""')}",${item.totalRounds}\n`;
-      });
+  history.forEach(item => {
+    const stats = {};
+    (item.history || []).forEach(match => {
+      const w = match.selected;
+      const l = match.defeated;
+      if (!stats[w]) stats[w] = { wins: 0, total: 0 };
+      if (!stats[l]) stats[l] = { wins: 0, total: 0 };
+      stats[w].wins += 1;
+      stats[w].total += 1;
+      stats[l].total += 1;
+    });
 
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `pareto_quiz_results_${Date.now()}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+    const ranked = Object.keys(stats).map(name => ({
+      name,
+      pct: stats[name].total > 0 ? Math.round((stats[name].wins / stats[name].total) * 100) : 0
+    })).sort((a, b) => b.pct - a.pct);
 
-    // Accessible in-page toast alert helper instead of window.alert()
+    const rankString = ranked.map((r, i) => `#${i + 1} ${r.name} (${r.pct}%)`).join("; ");
+
+    csv += `"${item.id}","${item.date}","${(item.winner||'').replace(/"/g, '""')}","${(item.userName||'').replace(/"/g, '""')}","${(item.userEmail||'').replace(/"/g, '""')}","${rankString}"\n`;
+  });
+
+  // 2. Granular Option Ranking Matrix
+  csv += "\n--- DETAILED OPTION RANKINGS PER RESPONSE ---\n";
+  csv += "Response ID,Respondent,Rank,Option Name,Wins,Total Matches,Win Rate %\n";
+
+  history.forEach(item => {
+    const stats = {};
+    (item.history || []).forEach(match => {
+      const w = match.selected;
+      const l = match.defeated;
+      if (!stats[w]) stats[w] = { wins: 0, total: 0 };
+      if (!stats[l]) stats[l] = { wins: 0, total: 0 };
+      stats[w].wins += 1;
+      stats[w].total += 1;
+      stats[l].total += 1;
+    });
+
+    const sorted = Object.keys(stats).map(name => ({
+      name,
+      wins: stats[name].wins,
+      total: stats[name].total,
+      pct: stats[name].total > 0 ? Math.round((stats[name].wins / stats[name].total) * 100) : 0
+    })).sort((a, b) => b.pct - a.pct || b.wins - a.wins);
+
+    sorted.forEach((row, idx) => {
+      csv += `"${item.id}","${(item.userName||'Anonymous').replace(/"/g, '""')}",${idx + 1},"${row.name.replace(/"/g, '""')}",${row.wins},${row.total},${row.pct}%\n`;
+    });
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", `hotel_quiz_preference_rankings_${Date.now()}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}    // Accessible in-page toast alert helper instead of window.alert()
     function alertModal(msg) {
       const toast = document.createElement('div');
       toast.className = 'fixed bottom-5 right-5 z-50 bg-slate-900 text-white text-xs px-4 py-3 rounded-xl shadow-lg border border-slate-700 animate-bounce';
